@@ -38,8 +38,13 @@ jobs:
           # dmgbuild の設定ファイル (settings.py) はリポジトリルートに配置済みであることを前提とします。
           dmgbuild -s settings.py "My App" MyApp.dmg
 
-      - name: Upload DMG Artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload DMG as Workflow Artifact
+        run: |
+          echo "DMG file created successfully at $(pwd)/MyApp.dmg"
+          echo "File size: $(du -h MyApp.dmg | cut -f1)"
+
+      - name: Archive DMG
+        uses: actions/upload-artifact@v1
         with:
           name: MyApp-DMG
           path: MyApp.dmg
