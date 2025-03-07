@@ -73,9 +73,15 @@ This repository includes a GitHub Actions workflow that automatically:
 2. Installs Python and dependencies
 3. Builds the app bundle using PyInstaller
 4. Creates a DMG file using dmgbuild
-5. Uploads the DMG as a workflow artifact for easy downloading
+5. Deploys the DMG to GitHub Pages for easy downloading
 
-The workflow runs on pushes to the main branch and on pull requests.
+The workflow runs on pushes to the main branch and on pull requests. When a push is made to the main branch, the DMG file will be deployed to GitHub Pages and will be available for download at:
+
+```
+https://<username>.github.io/<repository>/MyApp.dmg
+```
+
+Replace `<username>` with your GitHub username and `<repository>` with the name of this repository.
 
 ## Configuration
 

@@ -38,13 +38,22 @@ jobs:
           # dmgbuild の設定ファイル (settings.py) はリポジトリルートに配置済みであることを前提とします。
           dmgbuild -s settings.py "My App" MyApp.dmg
 
-      - name: Upload DMG as Workflow Artifact
+      - name: Display DMG Info
         run: |
           echo "DMG file created successfully at $(pwd)/MyApp.dmg"
           echo "File size: $(du -h MyApp.dmg | cut -f1)"
 
-      - name: Archive DMG
-        uses: actions/upload-artifact@v1
+      # Instead of using actions/upload-artifact, we'll create a release manually
+      - name: Create Release Directory
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p release
+          cp MyApp.dmg release/
+
+      - name: Deploy to GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          name: MyApp-DMG
-          path: MyApp.dmg
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./release
+          force_orphan: true
