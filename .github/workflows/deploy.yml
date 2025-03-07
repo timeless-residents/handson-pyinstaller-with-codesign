@@ -6,9 +6,23 @@ on:
   pull_request:
     branches: [main]
 
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
 jobs:
   build-dmg:
     runs-on: macos-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout repository
@@ -43,17 +57,41 @@ jobs:
           echo "DMG file created successfully at $(pwd)/MyApp.dmg"
           echo "File size: $(du -h MyApp.dmg | cut -f1)"
 
-      # Instead of using actions/upload-artifact, we'll create a release manually
-      - name: Create Release Directory
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      # Create a simple HTML page with download link
+      - name: Create Download Page
         run: |
-          mkdir -p release
-          cp MyApp.dmg release/
+          mkdir -p public
+          cat > public/index.html << EOF
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>My App Download</title>
+            <style>
+              body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+              .download-btn { display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; 
+                             text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 20px; }
+              .download-btn:hover { background-color: #45a049; }
+            </style>
+          </head>
+          <body>
+            <h1>My App</h1>
+            <p>A simple Python Tkinter application packaged as a DMG for macOS.</p>
+            <p>Built on: $(date)</p>
+            <p>File size: $(du -h MyApp.dmg | cut -f1)</p>
+            <a class="download-btn" href="MyApp.dmg">Download DMG</a>
+          </body>
+          </html>
+          EOF
+          cp MyApp.dmg public/
 
-      - name: Deploy to GitHub Pages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v3
+      # Upload the download page and DMG as artifacts
+      - name: Upload Artifacts
+        uses: actions/upload-pages-artifact@v2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./release
-          force_orphan: true
+          path: ./public
+
+      # Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment
+        if: github.ref == 'refs/heads/main'
+        uses: actions/deploy-pages@v2

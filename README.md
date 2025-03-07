@@ -75,10 +75,10 @@ This repository includes a GitHub Actions workflow that automatically:
 4. Creates a DMG file using dmgbuild
 5. Deploys the DMG to GitHub Pages for easy downloading
 
-The workflow runs on pushes to the main branch and on pull requests. When a push is made to the main branch, the DMG file will be deployed to GitHub Pages and will be available for download at:
+The workflow runs on pushes to the main branch and on pull requests. When a push is made to the main branch, the DMG file will be deployed to GitHub Pages and will be available for download through a user-friendly download page at:
 
 ```
-https://<username>.github.io/<repository>/MyApp.dmg
+https://<username>.github.io/<repository>/
 ```
 
 Replace `<username>` with your GitHub username and `<repository>` with the name of this repository.
