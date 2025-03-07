@@ -30,10 +30,51 @@ jobs:
           pip install --upgrade pip
           pip install pyinstaller dmgbuild
 
+      # Check if code signing secrets are available
+      - name: Check for code signing secrets
+        id: check_secrets
+        run: |
+          if [ -n "${{ secrets.APPLE_CERTIFICATE_BASE64 }}" ] && [ -n "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" ] && [ -n "${{ secrets.KEYCHAIN_PASSWORD }}" ]; then
+            echo "HAS_SIGNING_SECRETS=true" >> $GITHUB_OUTPUT
+          else
+            echo "HAS_SIGNING_SECRETS=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Set up code signing certificate (if secrets are available)
+      - name: Set up code signing certificate
+        if: steps.check_secrets.outputs.HAS_SIGNING_SECRETS == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo "Setting up code signing certificate..."
+          # Create a temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate to keychain
+          echo $APPLE_CERTIFICATE | base64 --decode > $RUNNER_TEMP/certificate.p12
+          security import $RUNNER_TEMP/certificate.p12 -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # Store the Developer ID Application identity for later use
+          DEVELOPER_ID=$(security find-identity -v -p codesigning $KEYCHAIN_PATH | grep "Developer ID Application" | head -1 | awk -F '"' '{print $2}')
+          echo "DEVELOPER_ID=$DEVELOPER_ID" >> $GITHUB_ENV
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+          echo "Code signing certificate set up successfully with identity: $DEVELOPER_ID"
+
       - name: Build App Bundle with PyInstaller
         run: |
-          # ※コード署名を行いたい場合は、--codesign-identity オプションなどを付与する
-          pyinstaller --windowed --name "MyApp" main.py
+          if [ -n "$DEVELOPER_ID" ]; then
+            echo "Building with code signing using identity: $DEVELOPER_ID"
+            pyinstaller --windowed --name "MyApp" --codesign-identity "$DEVELOPER_ID" main.py
+          else
+            echo "Building without code signing (no certificate provided)"
+            pyinstaller --windowed --name "MyApp" main.py
+          fi
 
       - name: Verify app bundle exists
         run: |
@@ -43,6 +84,37 @@ jobs:
         run: |
           # dmgbuild の設定ファイル (settings.py) はリポジトリルートに配置済みであることを前提とします。
           dmgbuild -s settings.py "My App" MyApp.dmg
+
+      # Check if notarization secrets are available
+      - name: Check for notarization secrets
+        id: check_notarization
+        run: |
+          if [ -n "${{ secrets.APPLE_ID }}" ] && [ -n "${{ secrets.APPLE_ID_PASSWORD }}" ] && [ -n "${{ secrets.APPLE_TEAM_ID }}" ] && [ -n "$DEVELOPER_ID" ]; then
+            echo "HAS_NOTARIZATION_SECRETS=true" >> $GITHUB_OUTPUT
+          else
+            echo "HAS_NOTARIZATION_SECRETS=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Notarize the DMG file (if secrets are available)
+      - name: Notarize DMG
+        if: steps.check_notarization.outputs.HAS_NOTARIZATION_SECRETS == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          echo "Notarizing DMG file..."
+
+          # Create a ZIP archive of the DMG for notarization
+          ditto -c -k --keepParent MyApp.dmg MyApp.zip
+
+          # Submit for notarization
+          xcrun notarytool submit MyApp.zip --apple-id "$APPLE_ID" --password "$APPLE_ID_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+
+          # Staple the notarization ticket to the DMG
+          xcrun stapler staple MyApp.dmg
+
+          echo "Notarization completed successfully"
 
       - name: Display DMG Info
         run: |

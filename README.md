@@ -55,15 +55,148 @@ This will create an app bundle in the `dist/` directory.
 dmgbuild -s settings.py "My App" MyApp.dmg
 ```
 
-## Code Signing (Optional)
+## Code Signing and Notarization
 
-To sign your application with your Apple Developer certificate:
+To ensure your application can be opened on macOS without security warnings, you need to sign and notarize it. The GitHub Actions workflow supports automatic code signing and notarization if you provide the necessary secrets.
 
-1. Obtain a Developer ID Application certificate from Apple
-2. Use the following command with PyInstaller:
-   ```
-   pyinstaller --windowed --name "MyApp" --codesign-identity "Developer ID Application: Your Name (XXXXXXXXXX)" main.py
-   ```
+### Setting Up GitHub Secrets for Code Signing
+
+#### 1. Obtain a Developer ID Application Certificate
+
+1. Enroll in the [Apple Developer Program](https://developer.apple.com/programs/) if you haven't already
+2. Go to your [Apple Developer Account](https://developer.apple.com/account/)
+3. Navigate to "Certificates, Identifiers & Profiles" > "Certificates"
+4. Click the "+" button to create a new certificate
+5. Select "Developer ID Application" and follow the instructions
+6. Download the certificate and double-click to install it in your Keychain
+
+#### 2. Export the Certificate as a .p12 File
+
+1. Open Keychain Access on your Mac
+2. Find your Developer ID Application certificate (it should include your private key)
+3. Right-click on the certificate and select "Export"
+4. Choose the .p12 format and set a strong password
+5. Save the file to a secure location
+
+#### 3. Base64 Encode the Certificate
+
+```bash
+base64 -i path/to/certificate.p12 | pbcopy
+```
+
+This command encodes the certificate and copies it to your clipboard.
+
+To verify the encoding worked correctly, you can paste it into a file and decode it:
+
+```bash
+# Paste the encoded content into a file
+pbpaste > encoded_cert.txt
+
+# Decode it to verify it's valid
+base64 -d encoded_cert.txt > decoded_cert.p12
+
+# Compare the file sizes - they should be identical
+ls -l path/to/certificate.p12 decoded_cert.p12
+```
+
+#### 4. Set Up GitHub Secrets
+
+In your GitHub repository:
+1. Go to "Settings" > "Secrets and variables" > "Actions"
+2. Add the following secrets:
+
+| Secret Name | Description | How to Obtain |
+|-------------|-------------|---------------|
+| `APPLE_CERTIFICATE_BASE64` | Base64-encoded .p12 certificate | From step 3 above |
+| `APPLE_CERTIFICATE_PASSWORD` | Password for the .p12 certificate | Password you set when exporting the certificate |
+| `KEYCHAIN_PASSWORD` | Password for the temporary keychain | Create any secure string |
+| `APPLE_ID` | Your Apple ID email | Your Apple Developer account email |
+| `APPLE_ID_PASSWORD` | App-specific password | Generate from [appleid.apple.com](https://appleid.apple.com) under "Security" > "App-Specific Passwords" |
+| `APPLE_TEAM_ID` | Your Apple Developer Team ID | Found in your [Developer Account](https://developer.apple.com/account) (it's a 10-character string) |
+
+#### 5. Verify Your Setup
+
+To verify your certificate is valid for code signing:
+
+```bash
+# List identities that can be used for code signing
+security find-identity -v -p codesigning
+
+# You should see your Developer ID Application certificate in the list
+```
+
+### Manual Code Signing and Notarization
+
+If you want to sign and notarize the application locally, follow these steps:
+
+#### 1. Build and Sign the Application
+
+```bash
+# Build the app with code signing
+pyinstaller --windowed --name "MyApp" --codesign-identity "Developer ID Application: Your Name (XXXXXXXXXX)" main.py
+```
+
+To verify the app is properly signed:
+
+```bash
+# Verify code signature
+codesign -dv --verbose=2 dist/MyApp.app
+
+# Verify Gatekeeper acceptance
+spctl -a -t exec -vv dist/MyApp.app
+```
+
+#### 2. Create a DMG
+
+```bash
+# Create the DMG
+dmgbuild -s settings.py "My App" MyApp.dmg
+```
+
+#### 3. Notarize the DMG
+
+```bash
+# Create a ZIP archive of the DMG for notarization
+ditto -c -k --keepParent MyApp.dmg MyApp.zip
+
+# Submit for notarization
+xcrun notarytool submit MyApp.zip --apple-id "your.email@example.com" --password "app-specific-password" --team-id "TEAMID" --wait
+
+# Alternatively, you can submit and get a request ID
+REQUEST_ID=$(xcrun notarytool submit MyApp.zip --apple-id "your.email@example.com" --password "app-specific-password" --team-id "TEAMID" | grep "id:" | awk '{print $2}')
+
+# Check status later
+xcrun notarytool info $REQUEST_ID --apple-id "your.email@example.com" --password "app-specific-password" --team-id "TEAMID"
+```
+
+#### 4. Staple the Notarization Ticket
+
+Once notarization is complete, staple the ticket to the DMG:
+
+```bash
+xcrun stapler staple MyApp.dmg
+
+# Verify stapling
+xcrun stapler validate MyApp.dmg
+```
+
+#### 5. Troubleshooting
+
+If notarization fails, you can get detailed logs:
+
+```bash
+# Get the log URL from the notarization info
+LOG_URL=$(xcrun notarytool info $REQUEST_ID --apple-id "your.email@example.com" --password "app-specific-password" --team-id "TEAMID" | grep "LogFileURL:" | awk '{print $2}')
+
+# Download and view the log
+curl -O $LOG_URL
+```
+
+Common issues include:
+- Missing entitlements
+- Hardened runtime issues
+- Unsigned frameworks or libraries
+- Invalid code signatures
 
 ## GitHub Actions Workflow
 
