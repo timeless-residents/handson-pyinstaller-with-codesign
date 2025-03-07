@@ -216,7 +216,7 @@ The workflow runs on pushes to the main branch, pull requests, and when tags are
 You can download the DMG file directly from the Releases page of the repository:
 
 ```
-https://github.com/<username>/<repository>/releases
+https://github.com/timeless-residents/handson-pyinstaller-with-codesign/releases
 ```
 
 ### Creating a New Release Version
