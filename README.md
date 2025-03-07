@@ -73,15 +73,34 @@ This repository includes a GitHub Actions workflow that automatically:
 2. Installs Python and dependencies
 3. Builds the app bundle using PyInstaller
 4. Creates a DMG file using dmgbuild
-5. Deploys the DMG to GitHub Pages for easy downloading
+5. Creates GitHub Releases with the DMG file attached for easy downloading
 
-The workflow runs on pushes to the main branch and on pull requests. When a push is made to the main branch, the DMG file will be deployed to GitHub Pages and will be available for download through a user-friendly download page at:
+The workflow runs on pushes to the main branch, pull requests, and when tags are pushed. It creates GitHub Releases in two scenarios:
+
+- **Latest Build**: When code is pushed to the main branch, it creates or updates a "latest" release with the most recent DMG file.
+- **Version Releases**: When a tag (e.g., v1.0.0) is pushed, it creates a standard release with that version.
+
+You can download the DMG file directly from the Releases page of the repository:
 
 ```
-https://<username>.github.io/<repository>/
+https://github.com/<username>/<repository>/releases
 ```
 
-Replace `<username>` with your GitHub username and `<repository>` with the name of this repository.
+### Creating a New Release Version
+
+To create a new versioned release:
+
+1. Tag your commit with a version number:
+   ```
+   git tag v1.0.0
+   ```
+
+2. Push the tag to GitHub:
+   ```
+   git push origin v1.0.0
+   ```
+
+The GitHub Actions workflow will automatically build the DMG and create a new release with the tag name.
 
 ## Configuration
 

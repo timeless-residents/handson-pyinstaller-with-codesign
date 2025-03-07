@@ -1,28 +1,20 @@
-name: Build DMG
+name: Build and Release DMG
 
 on:
   push:
     branches: [main]
+    tags:
+      - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
   pull_request:
     branches: [main]
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+# Sets permissions of the GITHUB_TOKEN to allow creating releases
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-# Allow only one concurrent deployment
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
+  contents: write
 
 jobs:
   build-dmg:
     runs-on: macos-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout repository
@@ -57,41 +49,35 @@ jobs:
           echo "DMG file created successfully at $(pwd)/MyApp.dmg"
           echo "File size: $(du -h MyApp.dmg | cut -f1)"
 
-      # Create a simple HTML page with download link
-      - name: Create Download Page
-        run: |
-          mkdir -p public
-          cat > public/index.html << EOF
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>My App Download</title>
-            <style>
-              body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-              .download-btn { display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; 
-                             text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 20px; }
-              .download-btn:hover { background-color: #45a049; }
-            </style>
-          </head>
-          <body>
-            <h1>My App</h1>
-            <p>A simple Python Tkinter application packaged as a DMG for macOS.</p>
-            <p>Built on: $(date)</p>
-            <p>File size: $(du -h MyApp.dmg | cut -f1)</p>
-            <a class="download-btn" href="MyApp.dmg">Download DMG</a>
-          </body>
-          </html>
-          EOF
-          cp MyApp.dmg public/
-
-      # Upload the download page and DMG as artifacts
-      - name: Upload Artifacts
-        uses: actions/upload-pages-artifact@v2
+      # Create a release when a tag is pushed
+      - name: Create Release for Tags
+        if: startsWith(github.ref, 'refs/tags/')
+        id: create_release
+        uses: ncipollo/release-action@v1
         with:
-          path: ./public
+          artifacts: "MyApp.dmg"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          prerelease: false
+          generateReleaseNotes: true
 
-      # Deploy to GitHub Pages
-      - name: Deploy to GitHub Pages
-        id: deployment
-        if: github.ref == 'refs/heads/main'
-        uses: actions/deploy-pages@v2
+      # For non-tag pushes to main, create an automatic release
+      - name: Create Automatic Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: create_auto_release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "MyApp.dmg"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: "latest"
+          name: "Latest Build"
+          body: "Automatic build from the latest commit on the main branch. Created on $(date)."
+          allowUpdates: true
+          makeLatest: true
+
+      # Upload the DMG as a workflow artifact as well
+      - name: Upload DMG as Workflow Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: MyApp-DMG
+          path: MyApp.dmg
