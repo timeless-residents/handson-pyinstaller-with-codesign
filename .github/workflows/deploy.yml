@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -75,9 +75,4 @@ jobs:
           allowUpdates: true
           makeLatest: true
 
-      # Upload the DMG as a workflow artifact as well
-      - name: Upload DMG as Workflow Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: MyApp-DMG
-          path: MyApp.dmg
+      # We're not using upload-artifact since we're already making the DMG available through GitHub Releases

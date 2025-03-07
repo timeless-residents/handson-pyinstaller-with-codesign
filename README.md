@@ -75,7 +75,7 @@ This repository includes a GitHub Actions workflow that automatically:
 4. Creates a DMG file using dmgbuild
 5. Creates GitHub Releases with the DMG file attached for easy downloading
 
-The workflow runs on pushes to the main branch, pull requests, and when tags are pushed. It creates GitHub Releases in two scenarios:
+The workflow runs on pushes to the main branch, pull requests, and when tags are pushed. The DMG file is made available through GitHub Releases in two scenarios:
 
 - **Latest Build**: When code is pushed to the main branch, it creates or updates a "latest" release with the most recent DMG file.
 - **Version Releases**: When a tag (e.g., v1.0.0) is pushed, it creates a standard release with that version.
