@@ -1,0 +1,45 @@
+name: Build DMG
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-dmg:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pyinstaller dmgbuild
+
+      - name: Build App Bundle with PyInstaller
+        run: |
+          # ※コード署名を行いたい場合は、--codesign-identity オプションなどを付与する
+          pyinstaller --windowed --name "MyApp" main.py
+
+      - name: Verify app bundle exists
+        run: |
+          ls -l dist/
+
+      - name: Create DMG with dmgbuild
+        run: |
+          # dmgbuild の設定ファイル (settings.py) はリポジトリルートに配置済みであることを前提とします。
+          dmgbuild -s settings.py "My App" MyApp.dmg
+
+      - name: Upload DMG Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: MyApp-DMG
+          path: MyApp.dmg
